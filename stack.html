@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Array Stack Demo</title>
+<style>
+:root{--bg:#f3f5f7;--ink:#14212b;--mute:#5b6b78;--panel:#ffffff;--line:#c9d3db;--slot:#e6ecf0;--fill:#1f6f8b;--fillink:#ffffff;--top:#c2410c;--err:#b42318;--ok:#1a7f4b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a22;--ink:#e6eef3;--mute:#93a5b3;--panel:#16252f;--line:#2b3f4c;--slot:#1d313d;--fill:#4db3d1;--fillink:#07202b;--top:#fb923c;--err:#ff8a80;--ok:#6ee7a1;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1a22;--ink:#e6eef3;--mute:#93a5b3;--panel:#16252f;--line:#2b3f4c;--slot:#1d313d;--fill:#4db3d1;--fillink:#07202b;--top:#fb923c;--err:#ff8a80;--ok:#6ee7a1;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;line-height:1.5}
+main{max-width:880px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:var(--mute)}
+.grid{display:grid;grid-template-columns:240px 1fr;gap:16px}
+@media (max-width:640px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.stackwrap{display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:54px 1fr 64px;align-items:center;gap:8px;min-height:44px}
+.idx{font-family:Consolas,Menlo,monospace;color:var(--mute);font-size:.85rem;text-align:right}
+.slot{height:44px;border:2px dashed var(--line);border-radius:6px;background:var(--slot);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;transition:background .25s,transform .25s}
+.slot.on{border:2px solid var(--fill);background:var(--fill);color:var(--fillink)}
+.slot.hit{outline:3px solid var(--ok)}
+.ptr{font-family:Consolas,Menlo,monospace;font-size:.85rem;color:var(--top);font-weight:700}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;font-family:Consolas,Menlo,monospace;font-size:.9rem;color:var(--mute)}
+.stats b{color:var(--ink)}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+input{font:inherit;width:90px;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+button{font:inherit;padding:9px 14px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--fill)}
+button.main{background:var(--fill);color:var(--fillink);border-color:var(--fill);font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--top);outline-offset:2px}
+h2{font-size:1rem;margin:16px 0 8px}
+#log{height:240px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px 10px;font-family:Consolas,Menlo,monospace;font-size:.85rem}
+#log div{padding:2px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.info{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.slot{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<h1>Array stack, capacity 5</h1>
+<p class="sub">Last in, first out. Try every operation and watch <code>top</code> move.</p>
+<div class="grid">
+  <section class="panel" aria-label="Stack array">
+    <div class="stackwrap" id="stack"></div>
+    <div class="stats">
+      <span>top = <b id="sTop">-1</b></span>
+      <span>size = <b id="sSize">0</b></span>
+      <span>empty = <b id="sEmpty">true</b></span>
+      <span>full = <b id="sFull">false</b></span>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="ctrl">
+      <input id="val" type="number" placeholder="value" aria-label="Value">
+      <button class="main" id="bPush">push</button>
+      <button id="bPop">pop</button>
+      <button id="bPeek">peek</button>
+    </div>
+    <div class="ctrl">
+      <button id="bSearch">search value</button>
+      <button id="bReverse">reverse</button>
+      <button id="bDisplay">display</button>
+    </div>
+    <div class="ctrl">
+      <button id="bEmpty">isEmpty</button>
+      <button id="bFull">isFull</button>
+      <button id="bSize">size</button>
+      <button id="bClear">clear</button>
+    </div>
+    <div class="ctrl"><button id="bDemo" class="main">Run full demo</button></div>
+    <h2>Log</h2>
+    <div id="log" aria-live="polite"></div>
+  </section>
+</div>
+</main>
+<script>
+const CAP=5;
+const arr=new Array(CAP).fill(null);
+let top=-1;
+const $=id=>document.getElementById(id);
+function log(msg,cls){const d=document.createElement('div');d.className=cls||'info';d.textContent=msg;$('log').appendChild(d);$('log').scrollTop=1e9}
+const isEmpty=()=>top===-1;
+const isFull=()=>top===CAP-1;
+const size=()=>top+1;
+function push(x){if(isFull()){log('push('+x+') -> Overflow, stack is full','bad');return}arr[++top]=x;log('push('+x+') -> ok','ok');render()}
+function pop(){if(isEmpty()){log('pop() -> Underflow, stack is empty','bad');return null}const v=arr[top];arr[top--]=null;log('pop() -> '+v,'ok');render();return v}
+function peek(){if(isEmpty()){log('peek() -> stack is empty','bad');return}log('peek() -> '+arr[top])}
+function search(x){for(let i=top;i>=0;i--){if(arr[i]===x){log('search('+x+') -> found at index '+i+', '+(top-i)+' from top','ok');render(i);return}}log('search('+x+') -> not found','bad')}
+function reverse(){for(let i=0,j=top;i<j;i++,j--){[arr[i],arr[j]]=[arr[j],arr[i]]}log('reverse() -> done','ok');render()}
+function display(){const out=[];for(let i=top;i>=0;i--)out.push(arr[i]);log('display() -> '+(out.length?out.join(', ')+' (top to bottom)':'empty'))}
+function clearAll(){while(!isEmpty())arr[top--]=null;log('clear() -> stack emptied');render()}
+function render(hit){
+  const s=$('stack');s.innerHTML='';
+  for(let i=CAP-1;i>=0;i--){
+    const r=document.createElement('div');r.className='row';
+    const ix=document.createElement('span');ix.className='idx';ix.textContent='['+i+']';
+    const sl=document.createElement('div');sl.className='slot'+(arr[i]!==null?' on':'')+(hit===i?' hit':'');
+    sl.textContent=arr[i]!==null?arr[i]:'';
+    const p=document.createElement('span');p.className='ptr';p.textContent=i===top?'\u25C0 top':'';
+    r.append(ix,sl,p);s.appendChild(r);
+  }
+  $('sTop').textContent=top;$('sSize').textContent=size();
+  $('sEmpty').textContent=isEmpty();$('sFull').textContent=isFull();
+}
+function num(){const v=$('val').value;if(v===''){log('Enter a number first','bad');return null}return Number(v)}
+$('bPush').onclick=()=>{const v=num();if(v!==null){push(v);$('val').value='';$('val').focus()}};
+$('val').addEventListener('keydown',e=>{if(e.key==='Enter')$('bPush').click()});
+$('bPop').onclick=pop;$('bPeek').onclick=peek;
+$('bSearch').onclick=()=>{const v=num();if(v!==null)search(v)};
+$('bReverse').onclick=reverse;$('bDisplay').onclick=display;$('bClear').onclick=clearAll;
+$('bEmpty').onclick=()=>log('isEmpty() -> '+isEmpty());
+$('bFull').onclick=()=>log('isFull() -> '+isFull());
+$('bSize').onclick=()=>log('size() -> '+size());
+$('bDemo').onclick=async()=>{
+  $('bDemo').disabled=true;clearAll();$('log').innerHTML='';
+  const steps=[()=>log('isEmpty() -> '+isEmpty()),()=>push(10),()=>push(20),()=>push(30),()=>push(40),()=>push(50),
+  ()=>log('isFull() -> '+isFull()),()=>push(60),peek,()=>log('size() -> '+size()),pop,pop,()=>search(20),display,reverse,peek,pop,pop,pop,pop];
+  for(const f of steps){f();await new Promise(r=>setTimeout(r,700))}
+  $('bDemo').disabled=false;
+};
+render();
+</script>
+</body>
+</html>
